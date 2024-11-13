@@ -11,7 +11,8 @@ import numpy as np
 app = Flask(__name__)
 CORS(app)  # Enable CORS to allow requests from React
 
-# Define the helper function for executing commands
+# The function for executing commands
+# Todo - change from if/elif to match/case logic (Current robot library on supports Python 3.8 while match/case is Python 3.10)
 def execute_command(data):
     command = data.get('command')
     location_name = data.get('location')
@@ -29,10 +30,10 @@ def execute_command(data):
         return jsonify(message=str(bot.arm.get_ee_pose())), 200
     elif command == 'home_pose':
         bot.arm.go_to_home_pose()
-    elif command == 'globe_pose':
+    elif command == 'globe_pose': # Sets robot in pose to grab globe
         bot.arm.set_ee_cartesian_trajectory(z=0.04)
         bot.arm.set_single_joint_position(joint_name='wrist_angle', position=np.pi/2)
-    elif command == 'ready_pose':
+    elif command == 'ready_pose': # Moves robot backwards to be ready to move the globe
         bot.arm.set_ee_cartesian_trajectory(x=-0.1)
     elif command == 'release_gripper':
         bot.gripper.release()
@@ -51,6 +52,7 @@ def execute_command(data):
         return jsonify(message="Invalid command"), 400
     return jsonify(message="Command executed successfully"), 200
 
+# Gets the latitude and longitude coordinates using the location provided by the user
 def get_locCoords(loc):
     geolocator = Nominatim(user_agent="geo_locator")
     try:
@@ -63,6 +65,7 @@ def get_locCoords(loc):
         print("An error occureed:", e)
         return None,None
 
+# Not used - a movement set for grabbing the globe
 def ready_position(bot):
     bot.gripper.release()
     bot.arm.set_ee_cartesian_trajectory(z=0.04)
@@ -70,12 +73,14 @@ def ready_position(bot):
     bot.gripper.grasp()
     time.sleep(1)
 
+# Not used - a movement set for pistioning the globe based on the coordinates retrieved
 def grab_hemi(bot,latRad,lonRad):
     bot.arm.go_to_home_pose()
     bot.arm.set_ee_cartesian_trajectory(x=-0.3,z=-0.05)
     bot.arm.set_single_joint_position(joint_name='wrist_rotate', position=lonRad)
     bot.arm.set_ee_cartesian_trajectory(pitch=latRad)
 
+# Not used - a movement set for returning the globe back to rest and moving the robot back to home
 def drop_hemi(bot,latRad,lonRad):
     bot.arm.go_to_home_pose()
     bot.arm.set_ee_cartesian_trajectory(z=0.04)
@@ -86,52 +91,30 @@ def drop_hemi(bot,latRad,lonRad):
     bot.arm.go_to_home_pose()
     bot.gripper.grasp()
 
-
-def go_to_coords(bot):
-    loc = input("Please enter an address or location:")
-    lat, lon = get_locCoords(loc)
-    if lat is not None and lon is not None:
-        print(f"The coordinates of '{loc}' are: Latitude: {lat}, Longitude {lon}.")
-    else:
-        print("Could not find the coordinates for the given location.")
-
-    latRad = np.radians(lat)
-    lonRad = np.radians(lon)
-    grab_hemi(bot,latRad,lonRad)
-    input("Press Enter to put the globe to home...")
-    #drop_hemi(bot,latRad,lonRad)
-    bot.arm.go_to_home_pose()
-    
-
+# Gets the lat/lon coordinates and moves tbe robot based on these coords so that the location on the globe is shown front and center
 def go_to_location(location_name):
     lat, lon = get_locCoords(location_name)
-    print(lat, lon)
     if lat is not None and lon is not None:
         print(f"The coordinates of '{location_name}' are: Latitude: {lat}, Longitude {lon}.")
     else:
         print("Could not find the coordinates for the given location.")
-
     latRad = np.radians(lat)
     lonRad = np.radians(lon)
-    print (latRad, lonRad)
-    #bot.arm.go_to_home_pose()
-    #bot.arm.set_ee_cartesian_trajectory(x=-0.3,z=-0.05)
+    bot.arm.go_to_home_pose()
+    bot.arm.set_ee_cartesian_trajectory(x=-0.3,z=-0.05)
     bot.arm.set_single_joint_position(joint_name='wrist_rotate', position=lonRad)
-    #bot.arm.set_ee_cartesian_trajectory(pitch=latRad)
+    bot.arm.set_ee_cartesian_trajectory(pitch=latRad)
+    return jsonify(message="Command executed successfully"), 200
 
 
-# Define the route for receiving commands
+# The route for receiving commands
 @app.route('/command', methods=['POST'])
 def command():
     data = request.json
-    #print(data)
-    #command = data.get('command')  # Get command from the request body
-    #location_name = data.get('location')
-    #print(command, location_name)
     return execute_command(data)
 
 
-# Initialize the robot
+# Initializes the robot
 bot = InterbotixManipulatorXS(
     robot_model='wx250s',
     group_name='arm',
