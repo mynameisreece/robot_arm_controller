@@ -1,1 +1,1 @@
-A simple application to control a WX250S robot arm
+A React based user interface that interacts with a Flask server to send commands to a ROS2 control node for a WX250S robot arm.
