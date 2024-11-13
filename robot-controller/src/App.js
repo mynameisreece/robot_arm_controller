@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Button, Grid, Typography, Box, TextField } from '@mui/material';
 
-// Custom hook for fetch with timeout
+// Hook for fetch with timeout
 const useTimeoutFetch = (url, options, timeout = 5000) => {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState('');
@@ -49,10 +49,10 @@ const App = () => {
     variant: 'contained',
   };
 
-  const commandStyle = {
+  const commandStyle = { // Styling for buttons
     ...buttonStyle,
     sx: {
-      marginBottom: 2, // Add spacing between buttons
+      marginBottom: 2, 
     },
   };
 
@@ -68,7 +68,7 @@ const App = () => {
     },
   };
 
-  // Handle button clicks (commands)
+  // Handle button clicks
   const handleButtonClick = async (command, locationInput = '') => {
     setIsLoading(true); // Start loading
     setResponse(''); // Clear previous response
@@ -186,7 +186,7 @@ const App = () => {
         ))}
       </Grid>
 
-      {/* Show Location */}
+      {/* Show Location text field and button*/}
       <Grid container spacing={2} justifyContent="center" sx={{ marginTop: 3 }}>
         <Grid item xs={6}>
           <TextField
@@ -220,7 +220,7 @@ const App = () => {
         </Grid>
       </Grid>
 
-      {/* Response */}
+      {/* Response text*/}
       <Box sx={{ marginTop: 3 }}>
         <Typography variant="h6">
           {isLoading ? 'Loading...' : `Response: ${response}`}
