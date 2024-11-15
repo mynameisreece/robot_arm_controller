@@ -16,14 +16,15 @@ CORS(app)  # Enable CORS to allow requests from React
 def execute_command(data):
     command = data.get('command')
     location_name = data.get('location')
+    distance = float(data.get('distance'))
     if command == 'move_up':
-        bot.arm.set_ee_cartesian_trajectory(z=0.1)
+        bot.arm.set_ee_cartesian_trajectory(z=distance)
     elif command == 'move_down':
-        bot.arm.set_ee_cartesian_trajectory(z=-0.1)
+        bot.arm.set_ee_cartesian_trajectory(z=-distance)
     elif command == 'move_left':
-        bot.arm.set_ee_cartesian_trajectory(y=0.1)
+        bot.arm.set_ee_cartesian_trajectory(y=distance)
     elif command == 'move_right':
-        bot.arm.set_ee_cartesian_trajectory(y=-0.1)
+        bot.arm.set_ee_cartesian_trajectory(y=-distance)
     elif command == 'go_to_coords':
         bot.arm.set_ee_cartesian_trajectory(x=0.2, y=0.2, z=0.2)
     elif command == 'print_pose':

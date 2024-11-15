@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Button, Grid, Typography, Box, TextField } from '@mui/material';
+import { Button, Grid, Typography, Box, TextField, CircularProgress, Snackbar } from '@mui/material';
 
 // Hook for fetch with timeout
 const useTimeoutFetch = (url, options, timeout = 5000) => {
@@ -25,7 +25,7 @@ const useTimeoutFetch = (url, options, timeout = 5000) => {
     } catch (error) {
       if (error.name === 'AbortError') {
         setResponse('Request timed out');
-      } else if (error.message.includes('NetworkError')) {
+      } else if (error.name === 'TypeError') {
         setResponse('Network error. Please check your connection.');
       } else {
         setResponse(`Error: ${error.message}`);
@@ -40,8 +40,10 @@ const useTimeoutFetch = (url, options, timeout = 5000) => {
 
 const App = () => {
   const [response, setResponse] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // To show loading state
-  const [location, setLocation] = useState(''); // For the "Show Location" command input
+  const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState('');
+  const [movementDistance, setMovementDistance] = useState(''); // For Movement Distance input
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const buttonStyle = {
     fullWidth: true,
@@ -49,11 +51,9 @@ const App = () => {
     variant: 'contained',
   };
 
-  const commandStyle = { // Styling for buttons
+  const commandStyle = {
     ...buttonStyle,
-    sx: {
-      marginBottom: 2, 
-    },
+    sx: { marginBottom: 2 },
   };
 
   const shutdownButtonStyle = {
@@ -62,24 +62,26 @@ const App = () => {
       marginTop: 2,
       marginBottom: 2,
       backgroundColor: '#FF0000',
-      '&:hover': {
-        backgroundColor: '#D40000',
-      },
+      '&:hover': { backgroundColor: '#D40000' },
     },
   };
 
-  // Handle button clicks
   const handleButtonClick = async (command, locationInput = '') => {
-    setIsLoading(true); // Start loading
-    setResponse(''); // Clear previous response
-
+    setIsLoading(true);
+    setResponse('');
+    
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      controller.abort(); // Abort the fetch request after 5 seconds
+      controller.abort();
     }, 5000);
 
     try {
-      const body = command === 'show_location' ? { command, location: locationInput } : { command };
+      const body = {
+        command,
+        location: locationInput || undefined,
+        distance: parseFloat(movementDistance) || undefined,
+      };
+      
       const res = await fetch('http://localhost:5000/command', {
         method: 'POST',
         headers: {
@@ -89,7 +91,7 @@ const App = () => {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId); // Clear timeout if request completes on time
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         throw new Error(`Server Error: ${res.statusText}`);
@@ -97,34 +99,32 @@ const App = () => {
 
       const data = await res.json();
       setResponse(data.message || data.pose);
+      setSnackbarOpen(true);
     } catch (error) {
       if (error.name === 'AbortError') {
         setResponse('Request timeout. The robot may not be available.');
-      } else if (error.message.includes('NetworkError')) {
+      } else if (error.name === 'TypeError') {
         setResponse('Network error. Please check your connection.');
       } else {
         setResponse(`Error: ${error.message}`);
       }
+      setSnackbarOpen(true);
     } finally {
-      setIsLoading(false); // Stop loading
+      setIsLoading(false);
     }
   };
 
-  const commands = [
-    'print_pose', 'home_pose', 'globe_pose', "ready_pose",
-    'release_gripper', 'grasp_gripper', 'sleep_pose',
-  ];
-
-  // Handle location submit
   const handleLocationSubmit = async () => {
     if (!location) {
       setResponse('Please enter a location.');
+      setSnackbarOpen(true);
       return;
     }
 
-    // Send location command with entered location
     await handleButtonClick('show_location', location);
   };
+
+  const handleSnackbarClose = () => setSnackbarOpen(false);
 
   return (
     <Box sx={{ padding: 2 }}>
@@ -139,17 +139,17 @@ const App = () => {
             {...commandStyle}
             onClick={() => handleButtonClick('move_up')}
           >
-            Move Up
+            {isLoading ? <CircularProgress size={24} /> : 'Move Up'}
           </Button>
         </Grid>
-
+        
         <Grid container item spacing={2} justifyContent="center" alignItems="center">
           <Grid item>
             <Button
               {...commandStyle}
               onClick={() => handleButtonClick('move_left')}
             >
-              Move Left
+              {isLoading ? <CircularProgress size={24} /> : 'Move Left'}
             </Button>
           </Grid>
           <Grid item>
@@ -157,7 +157,7 @@ const App = () => {
               {...commandStyle}
               onClick={() => handleButtonClick('move_right')}
             >
-              Move Right
+              {isLoading ? <CircularProgress size={24} /> : 'Move Right'}
             </Button>
           </Grid>
         </Grid>
@@ -167,14 +167,14 @@ const App = () => {
             {...commandStyle}
             onClick={() => handleButtonClick('move_down')}
           >
-            Move Down
+            {isLoading ? <CircularProgress size={24} /> : 'Move Down'}
           </Button>
         </Grid>
       </Grid>
 
       {/* Additional command buttons */}
       <Grid container spacing={2} justifyContent="center" sx={{ marginTop: 3 }}>
-        {commands.map((command) => (
+        {['print_pose', 'home_pose', 'globe_pose', "ready_pose", 'release_gripper', 'grasp_gripper', 'sleep_pose'].map((command) => (
           <Grid item xs={6} sm={4} md={3} key={command}>
             <Button
               {...commandStyle}
@@ -186,7 +186,7 @@ const App = () => {
         ))}
       </Grid>
 
-      {/* Show Location text field and button*/}
+      {/* Show Location and Movement Distance fields */}
       <Grid container spacing={2} justifyContent="center" sx={{ marginTop: 3 }}>
         <Grid item xs={6}>
           <TextField
@@ -208,6 +208,20 @@ const App = () => {
         </Grid>
       </Grid>
 
+      <Grid container spacing={2} justifyContent="center" sx={{ marginTop: 3 }}>
+        <Grid item xs={6}>
+          <TextField
+            label="Movement Distance"
+            value={movementDistance}
+            onChange={(e) => setMovementDistance(e.target.value)}
+            fullWidth
+            disabled={isLoading}
+            type="number"
+            inputProps={{ step: "0.1" }}
+          />
+        </Grid>
+      </Grid>
+
       {/* Shutdown */}
       <Grid container spacing={2} justifyContent="center" direction="column" alignItems="center">
         <Grid item>
@@ -220,15 +234,15 @@ const App = () => {
         </Grid>
       </Grid>
 
-      {/* Response text*/}
-      <Box sx={{ marginTop: 3 }}>
-        <Typography variant="h6">
-          {isLoading ? 'Loading...' : `Response: ${response}`}
-        </Typography>
-      </Box>
+      {/* Snackbar for responses */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        message={response}
+      />
     </Box>
   );
 };
 
 export default App;
-
